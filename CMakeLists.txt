@@ -26,7 +26,7 @@ if(NOT TARGET StaticLambda)
 	FetchContent_Declare(
 		StaticLambda
 		GIT_REPOSITORY https://github.com/kerrytazi/StaticLambda.git
-		GIT_TAG        7e9fb7a95673ab26b6f4ade72d7fc24c9c1fa731
+		GIT_TAG        41ff575f3398e26939c6f9ee1f1a904d4b854444
 		GIT_SHALLOW    TRUE
 	)
 	FetchContent_MakeAvailable(StaticLambda)
