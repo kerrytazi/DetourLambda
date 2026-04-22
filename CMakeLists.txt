@@ -18,6 +18,7 @@ target_include_directories(DetourLambda
 )
 
 target_compile_features(DetourLambda PRIVATE cxx_std_23)
+set_target_properties(DetourLambda PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/StaticLambda StaticLambda)
 target_link_libraries(DetourLambda PUBLIC StaticLambda)
