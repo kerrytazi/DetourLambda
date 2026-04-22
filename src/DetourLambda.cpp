@@ -33,17 +33,37 @@ static void _DetourLambda_Reprotected(void* prot_addr, size_t prot_size, TFunc&&
 }
 #endif
 
-void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target)
+void* _DetourLambda_Unjump(void* _target)
 {
-	while (*(uint8_t*)target == 0xE9)
+	auto target = (uint8_t*)_target;
+
+	while (true)
 	{
-		int32_t offset;
-		memcpy(&offset, (uint8_t*)target + 1, 4);
-		target = (uint8_t*)target + offset + 5;
+		if (target[0] == 0xE9)
+		{
+			int32_t offset;
+			memcpy(&offset, target + 1, 4);
+			target = target + offset + 5;
+		}
+		else
+		if (target[0] == 0xFF && target[1] == 0x25)
+		{
+			int32_t offset;
+			memcpy(&offset, target + 2, 4);
+			uint8_t* addr = target + offset + 6;
+			memcpy(&target, addr, 8);
+		}
+		else
+		{
+			break;
+		}
 	}
 
-	mem->original_addr = target;
+	return target;
+}
 
+void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target)
+{
 	size_t offset_from = 0;
 	size_t offset_to = 0;
 
@@ -54,8 +74,8 @@ void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target)
 		ZydisDecodedInstruction instruction;
 		ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
 
-		uint8_t* addr = (uint8_t*)mem->original_addr;
-		size_t proxy_len = sizeof(mem->proxy);
+		const uint8_t* const addr = (uint8_t*)target;
+		const size_t proxy_len = sizeof(mem->proxy);
 
 		while (true)
 		{
@@ -70,13 +90,13 @@ void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target)
 			{
 				if (req.operands[i].type == ZYDIS_OPERAND_TYPE_MEMORY && req.operands[i].mem.base == ZYDIS_REGISTER_RIP)
 				{
-					req.operands[i].mem.displacement -= ZyanI64(addr);
-					req.operands[i].mem.displacement += ZyanI64((char*)mem->proxy);
+					req.operands[i].mem.displacement -= ZyanI64((char*)mem->proxy);
+					req.operands[i].mem.displacement += ZyanI64(addr);
 				}
 			}
 
 			ZyanUSize encoded_length = sizeof(mem->proxy) - offset_to;
-			if (ZYAN_FAILED(ZydisEncoderEncodeInstructionAbsolute(&req, mem->proxy + offset_to, &encoded_length, ZyanU64(mem->proxy + offset_to))))
+			if (ZYAN_FAILED(ZydisEncoderEncodeInstruction(&req, mem->proxy + offset_to, &encoded_length)))
 				throw 1;
 
 			offset_from += instruction.length;
@@ -91,29 +111,29 @@ void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target)
 
 	{
 		mem->proxy[offset_to] = 0xE9;
-		int32_t jmp_back = int32_t(intptr_t((uint8_t*)mem->original_addr + offset_from) - intptr_t(mem->proxy + offset_to) - 5);
+		int32_t jmp_back = int32_t(intptr_t((uint8_t*)target + offset_from) - intptr_t(mem->proxy + offset_to) - 5);
 		memcpy(mem->proxy + offset_to + 1, &jmp_back, 4);
 	}
 
-	memcpy(mem->original, mem->original_addr, sizeof(mem->original));
+	memcpy(mem->original, target, sizeof(mem->original));
 
 	char new_original[sizeof(mem->original)];
 
 	{
-		memcpy(new_original, mem->original_addr, sizeof(mem->original));
+		memcpy(new_original, target, sizeof(mem->original));
 		new_original[0] = 0xE9;
-		int32_t jmp_forward = int32_t(intptr_t(mem->code) - intptr_t(mem->original_addr) - 5);
+		int32_t jmp_forward = int32_t(intptr_t(mem->code) - intptr_t(target) - 5);
 		memcpy(new_original + 1, &jmp_forward, 4);
 	}
 
-	_DetourLambda_Reprotected(mem->original_addr, sizeof(mem->original), [&]() {
-		memcpy(mem->original_addr, new_original, sizeof(new_original));
+	_DetourLambda_Reprotected(target, sizeof(mem->original), [&]() {
+		memcpy(target, new_original, sizeof(new_original));
 	});
 }
 
 void _DetourLambda_DestroyProxy(_DetourLambda_MemBase* mem)
 {
-	_DetourLambda_Reprotected(mem->original_addr, sizeof(mem->original), [&]() {
-		memcpy(mem->original_addr, mem->original, sizeof(mem->original));
+	_DetourLambda_Reprotected(mem->near_target, sizeof(mem->original), [&]() {
+		memcpy(mem->near_target, mem->original, sizeof(mem->original));
 	});
 }

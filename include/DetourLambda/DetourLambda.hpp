@@ -7,7 +7,6 @@ struct _DetourLambda_MemBase : _StaticLambda_MemBase
 {
 	char proxy[64];
 	char original[8];
-	void* original_addr;
 };
 
 template <typename>
@@ -27,6 +26,7 @@ struct _DetourLambda_FuncUtils<TRet(TArgs...)>
 
 void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target);
 void _DetourLambda_DestroyProxy(_DetourLambda_MemBase* mem);
+void* _DetourLambda_Unjump(void* _target);
 
 template <typename TSignature>
 struct DetourLambda
@@ -35,9 +35,9 @@ struct DetourLambda
 
 	template <typename TLambda, typename TNearTarget>
 	explicit DetourLambda(TNearTarget target, TLambda&& lambda)
-		: _lambda{ _DetourLambda_FuncUtils<TSignature>::CreateProxyLambda(std::move(lambda)), target, _StaticLambda_tag_type<_DetourLambda_MemBase>{} }
+		: _lambda{ _DetourLambda_FuncUtils<TSignature>::CreateProxyLambda(std::move(lambda)), _DetourLambda_Unjump((void*)target), _StaticLambda_tag_type<_DetourLambda_MemBase>{} }
 	{
-		_DetourLambda_CreateProxy((_DetourLambda_MemBase*)_lambda._mem, target);
+		_DetourLambda_CreateProxy((_DetourLambda_MemBase*)_lambda._mem, _lambda._mem->near_target);
 	}
 
 	~DetourLambda()
