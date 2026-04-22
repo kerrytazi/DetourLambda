@@ -5,7 +5,8 @@ Detours with C++ lambdas support.
 https://github.com/kerrytazi/DetourLambda/blob/037ef70d5cbbcf4231bc94cd88fcb7806a85f398/example/main.cpp#L7-L21
 
 ## How to add via cmake
-Can be added via simple [add_subdirectory](https://cmake.org/cmake/help/latest/command/add_subdirectory.html)/[FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
+
+### Via [FetchContent](https://cmake.org/cmake/help/latest/module/FetchContent.html)
 ```cmake
 include(FetchContent)
 
@@ -18,7 +19,14 @@ FetchContent_MakeAvailable(DetourLambda)
 target_link_libraries(MyTarget PRIVATE DetourLambda)
 ```
 
-
+### Via [add_subdirectory](https://cmake.org/cmake/help/latest/command/add_subdirectory.html)
+```sh
+git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/kerrytazi/DetourLambda.git
+```
+```cmake
+add_subdirectory(DetourLambda)
+target_link_libraries(MyTarget PRIVATE DetourLambda)
+```
 
 ## Credits
 
