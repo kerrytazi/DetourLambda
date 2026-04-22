@@ -1,0 +1,6 @@
+[submodule "libs/StaticLambda"]
+	path = libs/StaticLambda
+	url = https://github.com/kerrytazi/StaticLambda
+[submodule "libs/zydis"]
+	path = libs/zydis
+	url = https://github.com/zyantific/zydis
