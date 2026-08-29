@@ -18,8 +18,8 @@ struct _DetourLambda_FuncUtils<TRet(TArgs...)>
 	template <typename TLambda>
 	static auto CreateProxyLambda(TLambda&& lambda)
 	{
-		return [lambda{ std::move(lambda) }](TArgs... args, _DetourLambda_MemBase* mem) -> TRet {
-			return lambda(args..., (typename _StaticLambda_FuncUtils<TRet(TArgs...)>::func_t)(char*)mem->proxy);
+		return [moved_lambda{ std::move(lambda) }](TArgs... args, _DetourLambda_MemBase* mem) -> TRet {
+			return moved_lambda(args..., (typename _StaticLambda_FuncUtils<TRet(TArgs...)>::func_t)(char*)mem->proxy);
 		};
 	}
 };

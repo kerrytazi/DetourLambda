@@ -3,7 +3,7 @@
 #include <print>
 #include <optional>
 
-__declspec(noinline)
+SL_NOINLINE
 int test_add(int a, int b)
 {
 	return a + b;
@@ -17,7 +17,9 @@ void example1()
 		return original(c, a) - b;
 	});
 
-	std::println("example1: result = {}, expected = 6", test_add(2, 3)); // 7 + 2 - 3 = 6
+	volatile auto test_add2 = &test_add;
+
+	std::println("example1: result = {}, expected = 6", test_add2(2, 3)); // 7 + 2 - 3 = 6
 }
 
 void example2()
@@ -33,7 +35,9 @@ void example2()
 			return original(c, a) - b;
 		});
 
-		std::println("example2: result = {}, expected = 6", test_add(2, 3)); // 7 + 2 - 3 = 6
+		volatile auto test_add2 = &test_add;
+
+		std::println("example2: result = {}, expected = 6", test_add2(2, 3)); // 7 + 2 - 3 = 6
 
 		opt_dl.reset();
 	}
@@ -45,4 +49,6 @@ int main()
 {
 	example1();
 	example2();
+
+	return 0;
 }

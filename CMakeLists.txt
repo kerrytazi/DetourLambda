@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.3)
+cmake_minimum_required(VERSION 4.2)
 project("DetourLambda")
 
 option(DETOUR_LAMBDA_EXAMPLE "Build example project" OFF)

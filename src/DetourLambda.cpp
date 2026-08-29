@@ -2,7 +2,17 @@
 
 #include "Zydis/Zydis.h"
 
-#ifdef _WIN32
+static size_t align_up_to_page(size_t val)
+{
+	return (val + 4095) & ~4095;
+}
+
+static void* align_down_to_page(void* val)
+{
+	return (void*)(uintptr_t(val) & ~uintptr_t(0x1000 - 1));
+}
+
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -24,6 +34,9 @@ NtProtectVirtualMemory(
 template <typename TFunc>
 static void _DetourLambda_Reprotected(void* prot_addr, size_t prot_size, TFunc&& func)
 {
+	prot_addr = align_down_to_page(prot_addr);
+	prot_size = align_up_to_page(prot_size);
+
 	ULONG prot_old_protection = 0;
 	NtProtectVirtualMemory(HANDLE(-1), &prot_addr, &prot_size, PAGE_EXECUTE_READWRITE, &prot_old_protection);
 
@@ -31,7 +44,21 @@ static void _DetourLambda_Reprotected(void* prot_addr, size_t prot_size, TFunc&&
 
 	NtProtectVirtualMemory(HANDLE(-1), &prot_addr, &prot_size, prot_old_protection, &prot_old_protection);
 }
-#endif
+#else
+#include <sys/mman.h>
+
+template <typename TFunc>
+static void _DetourLambda_Reprotected(void* prot_addr, size_t prot_size, TFunc&& func)
+{
+	prot_addr = align_down_to_page(prot_addr);
+	prot_size = align_up_to_page(prot_size);
+
+	mprotect(prot_addr, prot_size, PROT_READ | PROT_WRITE | PROT_EXEC);
+	func();
+	// TODO: set previous protection
+	mprotect(prot_addr, prot_size, PROT_READ | PROT_EXEC);
+}
+#endif // defined(_WIN32)
 
 void* _DetourLambda_Unjump(void* _target)
 {
@@ -42,16 +69,16 @@ void* _DetourLambda_Unjump(void* _target)
 		if (target[0] == 0xE9)
 		{
 			int32_t offset;
-			memcpy(&offset, target + 1, 4);
+			std::memcpy(&offset, target + 1, 4);
 			target = target + offset + 5;
 		}
 		else
 		if (target[0] == 0xFF && target[1] == 0x25)
 		{
 			int32_t offset;
-			memcpy(&offset, target + 2, 4);
+			std::memcpy(&offset, target + 2, 4);
 			uint8_t* addr = target + offset + 6;
-			memcpy(&target, addr, 8);
+			std::memcpy(&target, addr, 8);
 		}
 		else
 		{
@@ -112,28 +139,28 @@ void _DetourLambda_CreateProxy(_DetourLambda_MemBase* mem, void* target)
 	{
 		mem->proxy[offset_to] = 0xE9;
 		int32_t jmp_back = int32_t(intptr_t((uint8_t*)target + offset_from) - intptr_t(mem->proxy + offset_to) - 5);
-		memcpy(mem->proxy + offset_to + 1, &jmp_back, 4);
+		std::memcpy(mem->proxy + offset_to + 1, &jmp_back, 4);
 	}
 
-	memcpy(mem->original, target, sizeof(mem->original));
+	std::memcpy(mem->original, target, sizeof(mem->original));
 
 	char new_original[sizeof(mem->original)];
 
 	{
-		memcpy(new_original, target, sizeof(mem->original));
+		std::memcpy(new_original, target, sizeof(mem->original));
 		new_original[0] = 0xE9;
 		int32_t jmp_forward = int32_t(intptr_t(mem->code) - intptr_t(target) - 5);
-		memcpy(new_original + 1, &jmp_forward, 4);
+		std::memcpy(new_original + 1, &jmp_forward, 4);
 	}
 
 	_DetourLambda_Reprotected(target, sizeof(mem->original), [&]() {
-		memcpy(target, new_original, sizeof(new_original));
+		std::memcpy(target, new_original, sizeof(new_original));
 	});
 }
 
 void _DetourLambda_DestroyProxy(_DetourLambda_MemBase* mem)
 {
 	_DetourLambda_Reprotected(mem->near_target, sizeof(mem->original), [&]() {
-		memcpy(mem->near_target, mem->original, sizeof(mem->original));
+		std::memcpy(mem->near_target, mem->original, sizeof(mem->original));
 	});
 }
