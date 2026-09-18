@@ -2,6 +2,7 @@
 
 #include <print>
 #include <optional>
+#include <vector>
 
 SL_NOINLINE
 int test_add(int a, int b)
@@ -45,10 +46,45 @@ void example2()
 	std::println("example2: result = {}, expected = 5", test_add(2, 3)); // 2 + 3 = 5
 }
 
+void example3()
+{
+	const static uint8_t buffer[] {
+		0x48, 0x8B, 0x05, 0x00, 0x00, 0x00, 0x00, // mov rax, [rip+0]
+
+		0x90, // nop
+		0x90, // nop
+		0x90, // nop
+		0x90, // nop
+		0x90, // nop
+		0x90, // nop
+		0x90, // nop
+		0x90, // nop
+
+		0xC3, // ret
+	};
+
+	auto func = (uint64_t(*)())buffer;
+
+	{
+		uint64_t c = 7;
+		DetourLambda<uint64_t()> dl(func, [&](auto original) -> uint64_t {
+			return c;
+		});
+
+		auto res = func();
+
+		std::println("example3: result = {:#018x}, expected = 0x0000000000000007", func());
+	}
+
+	std::println("example3: result = {:#018x}, expected = 0x9090909090909090", func());
+}
+
 int main()
 {
 	example1();
 	example2();
+	example3();
 
 	return 0;
 }
+
